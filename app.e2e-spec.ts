@@ -44,72 +44,25 @@ describe('AppController (e2e)', () => {
       const createTaskDto: CreateTaskDto = {
         title: 'Test title',
         description: 'Test description',
-        dueDate: new Date(),
+        dueDate: new Date('2024-12-30'),
       };
 
-      const createTask = jest.spyOn(service, 'createTask');
-
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .post('/task/create')
         .send(createTaskDto)
-        .expect(201);
-
-      expect(createTask).toHaveBeenCalledTimes(1);
-      expect(response.body.body.id).toBeDefined();
-      expect(response.body.body.title).toEqual(createTaskDto.title);
+        .expect(201)
+        .expect(({ body }) => {
+          expect(body.body.title).toEqual(createTaskDto.title);
+          expect(body.body.description).toEqual(createTaskDto.description);
+          expect(body.body.dueDate).toEqual(
+            createTaskDto.dueDate.toISOString(),
+          );
+          expect(body.body.status).toEqual(TaskStatus.OPEN);
+        });
     });
   });
 
   describe('PUT task', () => {
-    it('should return OK', async () => {
-      const updateTask = jest.spyOn(service, 'updateTask');
-
-      const createTask = await service.createTask({
-        title: 'Test title',
-        description: 'Test description',
-        dueDate: new Date(),
-      });
-
-      const updateTaskDto: UpdateTaskDto = {
-        id: createTask.body.id,
-        title: 'Test title updated',
-        description: 'Test description updated',
-        dueDate: new Date(),
-        status: TaskStatus.DONE,
-      };
-
-      const response = await request(app.getHttpServer())
-        .put('/task/update')
-        .send(updateTaskDto)
-        .expect(200);
-
-      expect(updateTask).toHaveBeenCalledTimes(1);
-      expect(response.body.body.id).toEqual(updateTaskDto.id);
-      expect(response.body.body.title).toEqual(updateTaskDto.title);
-    });
-  });
-
-  describe('DELETE task', () => {
-    it('should return OK', async () => {
-      const deleteTask = jest.spyOn(service, 'deleteTask');
-
-      const createTask = await service.createTask({
-        title: 'Test title',
-        description: 'Test description',
-        dueDate: new Date(),
-      });
-
-      const response = await request(app.getHttpServer())
-        .delete('/task/delete')
-        .send({ id: createTask.body.id })
-        .expect(200);
-
-      expect(deleteTask).toHaveBeenCalledTimes(1);
-      expect(response.body.body.id).toEqual(createTask.body.id);
-    });
-  });
-
-  describe('GET tasks (with data, sorted by DUE DATE)', () => {
     it('should return OK', async () => {
       const createTaskDto: CreateTaskDto = {
         title: 'Test title',
@@ -117,43 +70,108 @@ describe('AppController (e2e)', () => {
         dueDate: new Date('2024-12-30'),
       };
 
-      const createTaskDto2: CreateTaskDto = {
-        title: 'Test title 2',
-        description: 'Test description 2',
-        dueDate: new Date('2024-10-31'),
+      const createdTask = await request(app.getHttpServer())
+        .post('/task/create')
+        .send(createTaskDto)
+        .expect(201);
+
+      const updateTaskDto: UpdateTaskDto = {
+        id: createdTask.body.body.id,
+        title: 'Test title updated',
+        description: 'Test description updated',
+        dueDate: new Date('2024-12-25'),
+        status: TaskStatus.DONE,
       };
+
+      await request(app.getHttpServer())
+        .put('/task/update')
+        .send(updateTaskDto)
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.body.id).toEqual(updateTaskDto.id);
+          expect(body.body.title).toEqual(updateTaskDto.title);
+          expect(body.body.description).toEqual(updateTaskDto.description);
+          expect(body.body.dueDate).toEqual(
+            updateTaskDto.dueDate.toISOString(),
+          );
+          expect(body.body.status).toEqual(updateTaskDto.status);
+        });
+    });
+  });
+
+  describe('DELETE task', () => {
+    it('should return OK', async () => {
+      const createTaskDto: CreateTaskDto = {
+        title: 'Test title',
+        description: 'Test description',
+        dueDate: new Date('2024-12-30'),
+      };
+
+      const createdTask = await request(app.getHttpServer())
+        .post('/task/create')
+        .send(createTaskDto)
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .delete('/task/delete')
+        .send({ id: createdTask.body.body.id })
+        .expect(200)
+        .expect(({ body }) => {
+          expect(body.body.id).toEqual(createdTask.body.body.id);
+          expect(body.body.title).toEqual(createdTask.body.body.title);
+          expect(body.body.description).toEqual(
+            createdTask.body.body.description,
+          );
+          expect(body.body.dueDate).toEqual(createdTask.body.body.dueDate);
+          expect(body.body.status).toEqual(createdTask.body.body.status);
+        });
+    });
+  });
+
+  describe('GET tasks (with data, sorted by DUE DATE)', () => {
+    it('should return OK', async () => {
+      const tasksToCreate: CreateTaskDto[] = [
+        {
+          title: 'Test title',
+          description: 'Test description',
+          dueDate: new Date('2024-12-30'),
+        },
+        {
+          title: 'Test title 2',
+          description: 'Test description 2',
+          dueDate: new Date('2024-10-31'),
+        },
+        {
+          title: 'Test title 3',
+          description: 'Test description 3',
+          dueDate: new Date('2024-11-30'),
+        },
+      ];
 
       const results = [];
 
-      await service.createTask(createTaskDto).then((result) => {
-        results.push(result);
-      });
+      for (const task of tasksToCreate) {
+        const createdTask = await service.createTask(task);
 
-      await service.createTask(createTaskDto2).then((result) => {
-        results.push(result);
-      });
+        results.push(createdTask);
+      }
 
       results.sort(
         (a, b) => a.body.dueDate.getTime() - b.body.dueDate.getTime(),
       );
 
-      const getTasks = jest.spyOn(service, 'getTasks').mockResolvedValue(
-        new ResponseDto(
-          200,
-          results.map((result) => result.body),
-        ),
-      );
+      console.log('results', results);
 
-      const response = await request(app.getHttpServer())
+      await request(app.getHttpServer())
         .get('/task')
-        .expect(200);
-
-      expect(getTasks).toHaveBeenCalledTimes(1);
-      expect(response.body.body.length).toBe(2);
-      // Compare the due dates if they are sorted correctly, the first one should be the one with the nearest due date
-      expect(
-        new Date(response.body.body[0].dueDate).getTime(),
-      ).toBeLessThanOrEqual(new Date(response.body.body[1].dueDate).getTime());
+        .expect(200)
+        .expect(({ body }) => {
+          console.log(body.body);
+          expect(body.body.length).toBe(3);
+          expect(body.body[0].title).toEqual(results[0].body.title);
+          expect(body.body[1].title).toEqual(results[1].body.title);
+          expect(body.body[2].title).toEqual(results[2].body.title);
+        });
     });
   });
 
