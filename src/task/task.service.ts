@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -16,12 +15,6 @@ export class TaskService {
     try {
       //Check if the due date is in the past and validate the due date
       const dueDate = new Date(data.dueDate);
-
-      if (dueDate < new Date() || isNaN(dueDate.getTime())) {
-        throw new ConflictException(
-          'Due date cannot be in the past or invalid date format',
-        );
-      }
 
       const task = {
         ...data,

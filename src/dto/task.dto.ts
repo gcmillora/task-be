@@ -1,12 +1,13 @@
 import { OmitType } from '@nestjs/swagger';
 import { TaskStatus } from './task.status.enum';
-import { IsDateString, IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsDate, IsEnum, IsNotEmpty, IsString, MinDate } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class TaskDto {
   id?: string;
 
   @IsEnum(TaskStatus)
-  status: TaskStatus;
+  status?: TaskStatus;
 
   @IsString()
   @IsNotEmpty()
@@ -16,8 +17,10 @@ export class TaskDto {
   @IsNotEmpty()
   description!: string;
 
-  @IsDateString()
+  @IsDate()
   @IsNotEmpty()
+  @Type(() => Date)
+  @MinDate(new Date())
   dueDate!: Date;
 }
 
